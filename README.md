@@ -28,7 +28,7 @@
 ```bash
 # 克隆仓库
 git clone https://github.com/zlqd123/zunmouse
-cd KeyForge
+cd zunmouse
 
 # 编译 Release 版本
 dotnet build -c Release

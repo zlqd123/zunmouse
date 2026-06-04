@@ -38,7 +38,7 @@ namespace MouseKeyboardClicker
 
         private const int HOTKEY_BASE = 100;
         private const int HOTKEY_EMERGENCY = 99;
-        private const string CONFIG_FILE = "KeyForge.cfg";
+        private static readonly string CONFIG_FILE = Path.Combine(Application.StartupPath, "KeyForge.cfg");
 
         [Flags]
         private enum ModifierKey
@@ -81,6 +81,7 @@ namespace MouseKeyboardClicker
 
         private Label? lblMousePos;
         private Button? btnEmergencyStop;
+        private Button? btnSaveConfig;
         private CheckBox? chkSound;
         private ComboBox? cbModifier;
         private Label? lblModifierHint;
@@ -89,7 +90,6 @@ namespace MouseKeyboardClicker
         public Form1()
         {
             InitializeActions();
-            LoadConfig();
             InitializeComponent();
             this.Load += Form1_Load;
             this.FormClosing += Form1_FormClosing;
@@ -124,7 +124,6 @@ namespace MouseKeyboardClicker
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"保存配置失败: {ex.Message}");
             }
         }
 
@@ -168,13 +167,38 @@ namespace MouseKeyboardClicker
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"加载配置失败: {ex.Message}");
             }
+        }
+
+        private void ApplyConfigToUI()
+        {
+            if (chkSound != null)
+                chkSound.Checked = soundEnabled;
+            if (cbModifier != null)
+                cbModifier.SelectedIndex = currentModifierIndex;
+            
+            for (int i = 0; i < actions.Count; i++)
+            {
+                var action = actions[i];
+                var controls = action.Controls;
+                if (controls != null)
+                {
+                    if (controls.RbClick != null)
+                        controls.RbClick.Checked = action.IsClickMode;
+                    if (controls.RbPress != null)
+                        controls.RbPress.Checked = !action.IsClickMode;
+                    if (controls.CbKey != null)
+                        controls.CbKey.SelectedItem = action.KeyValue;
+                    if (controls.NumFreq != null)
+                        controls.NumFreq.Value = action.Frequency;
+                }
+            }
+            
+            UpdateModifierHint();
         }
 
         private void InitializeComponent()
         {
-            // 窗口高度减少20%：从980降到780
             this.Size = new Size(780, 780);
             this.Text = "KeyForge - 多按键连点/长按器";
             this.StartPosition = FormStartPosition.CenterScreen;
@@ -183,7 +207,6 @@ namespace MouseKeyboardClicker
 
             int yPos = 15;
 
-            // 鼠标坐标
             lblMousePos = new Label
             {
                 Text = "当前鼠标坐标: (0, 0)",
@@ -195,7 +218,6 @@ namespace MouseKeyboardClicker
             this.Controls.Add(lblMousePos);
             yPos += 35;
 
-            // 全局设置区域
             var gbGlobal = new GroupBox
             {
                 Text = "全局设置",
@@ -203,7 +225,7 @@ namespace MouseKeyboardClicker
                 Size = new Size(730, 85),
                 Font = new Font("微软雅黑", 10, FontStyle.Bold)
             };
-            
+
             chkSound = new CheckBox
             {
                 Text = "启用操作音效",
@@ -212,12 +234,22 @@ namespace MouseKeyboardClicker
                 Checked = soundEnabled,
                 Font = new Font("微软雅黑", 10)
             };
-            chkSound.CheckedChanged += (s, e) => 
-            { 
+            chkSound.CheckedChanged += (s, e) =>
+            {
                 soundEnabled = chkSound.Checked;
                 SaveConfig();
             };
-            
+
+            lblModifierHint = new Label
+            {
+                Text = "",
+                Location = new Point(160, 24),
+                Size = new Size(400, 26),
+                Font = new Font("微软雅黑", 10),
+                ForeColor = Color.DarkBlue
+            };
+            UpdateModifierHint();
+
             Label lblModifier = new Label
             {
                 Text = "修饰键:",
@@ -235,38 +267,39 @@ namespace MouseKeyboardClicker
             cbModifier.Items.AddRange(new object[] { "无", "Ctrl", "Alt", "Shift", "Ctrl+Alt", "Ctrl+Shift", "Alt+Shift", "Ctrl+Alt+Shift" });
             cbModifier.SelectedIndex = currentModifierIndex;
             cbModifier.SelectedIndexChanged += ModifierChanged;
-            
-            lblModifierHint = new Label
+
+            btnSaveConfig = new Button
             {
-                Text = "",
-                Location = new Point(215, 52),
-                Size = new Size(350, 26),
-                Font = new Font("微软雅黑", 10),
-                ForeColor = Color.DarkBlue
+                Text = "保存配置",
+                Location = new Point(490, 48),
+                Size = new Size(90, 30),
+                BackColor = Color.LightBlue,
+                Font = new Font("微软雅黑", 9, FontStyle.Bold)
             };
-            
+            btnSaveConfig.Click += (s, e) => SaveConfig();
+
             btnEmergencyStop = new Button
             {
                 Text = "关闭所有",
-                Location = new Point(590, 22),
-                Size = new Size(110, 50),
+                Location = new Point(590, 48),
+                Size = new Size(110, 30),
                 BackColor = Color.LightCoral,
-                Font = new Font("微软雅黑", 11, FontStyle.Bold)
+                Font = new Font("微软雅黑", 10, FontStyle.Bold)
             };
             btnEmergencyStop.Click += BtnEmergencyStop_Click;
-            
+
             gbGlobal.Controls.Add(chkSound);
+            gbGlobal.Controls.Add(lblModifierHint);
             gbGlobal.Controls.Add(lblModifier);
             gbGlobal.Controls.Add(cbModifier);
-            gbGlobal.Controls.Add(lblModifierHint);
+            gbGlobal.Controls.Add(btnSaveConfig);
             gbGlobal.Controls.Add(btnEmergencyStop);
             this.Controls.Add(gbGlobal);
             yPos += 95;
 
-            // 创建5个按键面板
             for (int i = 0; i < actions.Count; i++)
             {
-                var panel = CreateKeyPanel(actions[i], i);
+                var panel = CreateKeyPanel(actions[i]);
                 panel.Location = new Point(20, yPos);
                 this.Controls.Add(panel);
                 yPos += panel.Height + 6;
@@ -275,13 +308,13 @@ namespace MouseKeyboardClicker
             mousePosTimer = new System.Windows.Forms.Timer();
             mousePosTimer.Interval = 50;
             mousePosTimer.Tick += MousePosTimer_Tick;
-            
-            UpdateModifierHint();
         }
 
         private void ModifierChanged(object? sender, EventArgs e)
         {
-            currentModifierIndex = cbModifier?.SelectedIndex ?? 1;
+            if (cbModifier == null) return;
+            
+            currentModifierIndex = cbModifier.SelectedIndex;
             currentModifier = currentModifierIndex switch
             {
                 0 => ModifierKey.None,
@@ -325,7 +358,7 @@ namespace MouseKeyboardClicker
             }
             else
             {
-                displayText = $"热键: {modifierText} + F6~F10  |  关闭所有: {modifierText} + F1";
+                displayText = $"热键: {modifierText}+F6~F10  |  关闭所有: {modifierText}+F1";
             }
             lblModifierHint.Text = displayText;
         }
@@ -353,7 +386,7 @@ namespace MouseKeyboardClicker
             return (uint)currentModifier;
         }
 
-        private GroupBox CreateKeyPanel(KeyAction action, int index)
+        private GroupBox CreateKeyPanel(KeyAction action)
         {
             var panel = new GroupBox
             {
@@ -368,7 +401,6 @@ namespace MouseKeyboardClicker
             
             var controls = new KeyControlData();
 
-            // 连点/长按 圆形复选框 - 加大尺寸和字号
             controls.RbClick = new RadioButton
             {
                 Text = "连点",
@@ -422,7 +454,6 @@ namespace MouseKeyboardClicker
             panel.Controls.Add(controls.RbClick);
             panel.Controls.Add(controls.RbPress);
 
-            // 按键选择
             controls.CbKey = new ComboBox
             {
                 Location = new Point(x + 140, y - 2),
@@ -480,7 +511,6 @@ namespace MouseKeyboardClicker
             };
             panel.Controls.Add(controls.CbKey);
 
-            // 频率
             controls.NumFreq = new NumericUpDown
             {
                 Location = new Point(x + 320, y - 2),
@@ -507,7 +537,6 @@ namespace MouseKeyboardClicker
             panel.Controls.Add(controls.NumFreq);
             panel.Controls.Add(lblFreq);
 
-            // 热键提示
             controls.LblHotkeyHint = new Label
             {
                 Text = GetHotkeyDisplay(action.HotkeyBase),
@@ -519,7 +548,6 @@ namespace MouseKeyboardClicker
             };
             panel.Controls.Add(controls.LblHotkeyHint);
 
-            // 状态显示
             controls.LblStatus = new Label
             {
                 Text = "● 空闲",
@@ -531,7 +559,6 @@ namespace MouseKeyboardClicker
             };
             panel.Controls.Add(controls.LblStatus);
 
-            // 手动控制按钮
             controls.BtnControl = new Button
             {
                 Text = "启动",
@@ -789,6 +816,8 @@ namespace MouseKeyboardClicker
         private void Form1_Load(object? sender, EventArgs e)
         {
             mousePosTimer?.Start();
+            LoadConfig();
+            ApplyConfigToUI();
             RegisterHotkeys();
         }
 
