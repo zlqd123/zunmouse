@@ -1,37 +1,95 @@
-# zunmouse
+# ai-issue-analysis
 
-**多按键独立连点/长按工具** | 支持5个独立热键，鼠标键盘全适配
+一个通用的 GitHub Issue AI 分析工具，使用 OpenAI 兼容 API（如 DeepSeek、OpenAI、Azure 等）自动分析 Issue 并生成结论。
 
-[![.NET](https://img.shields.io/badge/.NET-8.0-blue)](https://dotnet.microsoft.com/)
-[![Windows](https://img.shields.io/badge/Windows-x64-0078D4)](https://www.microsoft.com/windows)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+## 功能特点
 
----
-100%AI，99.9%屎
+- 支持任何 OpenAI 兼容的 API（DeepSeek、OpenAI、Azure、本地模型等）
+- 自动读取 Issue 正文和评论
+- 生成结构化的分析报告
+- 将分析结果回写到 Issue 评论
+- 简单易用，无需复杂配置
 
-![alt text](image.png)
+## 快速接入
 
-## ✨ 特性
+### 1. 配置 Secrets
 
-- 🎹 **5个独立按键** - F6~F10，可独立控制
-- 🔄 **连点/长按模式** - 每个按键单独切换
-- 🖱️ **鼠标+键盘全支持** - 左键/右键/中键 + 87键配列
-- 🎛️ **自定义修饰键** - Ctrl/Alt/Shift 任意组合
-- 🔊 **操作音效反馈** - 可开关
-- 🚀 **轻量单文件** - 编译后约30MB，无需安装
-- ⚡ **同时运行** - 5个按键可同时执行不同操作
+在你的 GitHub 仓库 → Settings → Secrets and variables → Actions 中添加：
 
----
+| Secret 名称 | 说明 | 示例值 |
+|-------------|------|--------|
+| `AI_API_KEY` | AI 服务的 API Key | `sk-xxx` |
+| `AI_BASE_URL` | API 端点 URL | `https://api.deepseek.com` |
+| `AI_MODEL` | 模型名称 | `deepseek-v4-flash` |
 
-## 编译步骤
+### 2. 复制文件
 
-```bash
-# 克隆仓库
-git clone https://github.com/zlqd123/zunmouse
-cd zunmouse
+将以下文件复制到你的仓库：
 
-# 编译 Release 版本
-dotnet build -c Release
+```
+.github/
+├── workflows/
+│   └── ai-issue-analysis.yml
+└── scripts/
+    └── analyze_issue.py
+```
 
-# 运行
-dotnet run
+### 3. 测试
+
+创建一个新 Issue，或在已有 Issue 中评论 `@github-actions`，即可触发 AI 分析。
+
+## 支持的 AI 服务
+
+### DeepSeek
+
+```yaml
+AI_BASE_URL: https://api.deepseek.com
+AI_MODEL: deepseek-v4-flash
+```
+
+### OpenAI
+
+```yaml
+AI_BASE_URL: https://api.openai.com/v1
+AI_MODEL: gpt-4o
+```
+
+### Azure OpenAI
+
+```yaml
+AI_BASE_URL: https://your-resource.openai.azure.com/
+AI_MODEL: gpt-4o
+```
+
+### 本地模型（如 Ollama）
+
+```yaml
+AI_BASE_URL: http://localhost:11434/v1
+AI_MODEL: llama3
+```
+
+## 工作流程
+
+1. 用户创建 Issue 或评论 `@github-actions`
+2. GitHub Actions 自动触发
+3. Python 脚本读取 Issue 内容
+4. 调用 AI API 生成分析
+5. 将分析结果回写到 Issue 评论
+
+## 自定义
+
+### 修改分析提示词
+
+编辑 `.github/scripts/analyze_issue.py` 中的 `prompt` 变量，可以自定义 AI 的分析行为。
+
+### 添加项目特定知识
+
+如果你的项目有特定的日志格式、错误模式或架构，可以在提示词中添加相关说明，提高分析准确性。
+
+## 示例
+
+查看 [zlqd123/zunmouse#5](https://github.com/zlqd123/zunmouse/issues/5) 的 AI 分析结果。
+
+## 许可证
+
+MIT License
